@@ -157,7 +157,7 @@ void loop()
     int rawHead = renard.channelValue(11);
     int headPos = 90;
     if(rawHead != 0) {
-      headPos = map(rawHead, 0, 255, 0, 180);
+      headPos = map(rawHead, 0, 255, 40, 140);
     }
     //constantly writing servo values jitter fix?
     if(headPos != prevSkeletonServo1Pos) {
@@ -172,7 +172,7 @@ void loop()
     rawHead = renard.channelValue(13);
     headPos = 90;
     if(rawHead != 0) {
-      headPos = map(rawHead, 0, 255, 0, 180);
+      headPos = map(rawHead, 0, 255, 40, 140);
     }
     //constantly writing servo values jitter fix?
     if(headPos != prevSkeletonServo2Pos) {
