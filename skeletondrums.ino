@@ -12,10 +12,16 @@
 #define SKELETON_PIN_HEAD_1_EYES 7
 #define SKELETON_PIN_HEAD_1_SERVO 8
 
+#define SKELETON_PIN_HEAD_2_EYES 11
+#define SKELETON_PIN_HEAD_2_SERVO 12
+
 #define GUITAR_PIN_RED 22
 #define GUITAR_PIN_BLUE 24
 #define GUITAR_PIN_GREEN 26
 #define GUITAR_PIN_WHITE 28
+
+#define SMOKE_LEFT_PIN 30
+#define SMOKE_RIGHT_PIN 32
 
 #define DRUM_1_LED_COUNT 44
 #define DRUM_2_LED_COUNT 36
@@ -44,10 +50,12 @@ CRGB drum4Leds[DRUM_4_LED_COUNT];
 CRGB drum5Leds[DRUM_5_LED_COUNT]; 
 
 Adafruit_TiCoServo skeleton1Servo;
+Adafruit_TiCoServo skeleton2Servo;
 
-Renard renard(Serial, 11);
+Renard renard(Serial, 15);
 
 int prevSkeletonServo1Pos = 90;
+int prevSkeletonServo2Pos = 90;
 
 void setup()
 {
@@ -80,6 +88,13 @@ void setup()
   pinMode(SKELETON_PIN_HEAD_1_EYES, OUTPUT);
   skeleton1Servo.attach(SKELETON_PIN_HEAD_1_SERVO);
   skeleton1Servo.write(90);
+
+  pinMode(SKELETON_PIN_HEAD_2_EYES, OUTPUT);
+  skeleton2Servo.attach(SKELETON_PIN_HEAD_2_SERVO);
+  skeleton2Servo.write(90);
+
+  pinMode(SMOKE_LEFT_PIN, OUTPUT);
+  pinMode(SMOKE_RIGHT_PIN, OUTPUT);
 
   lastTimeWeMovedMotor = millis();
 }
@@ -149,6 +164,35 @@ void loop()
       prevSkeletonServo1Pos = headPos;
       skeleton1Servo.write(headPos);
       
+    }
+
+
+    analogWrite(SKELETON_PIN_HEAD_2_EYES, renard.channelValue(12));
+
+    rawHead = renard.channelValue(13);
+    headPos = 90;
+    if(rawHead != 0) {
+      headPos = map(rawHead, 0, 255, 0, 180);
+    }
+    //constantly writing servo values jitter fix?
+    if(headPos != prevSkeletonServo2Pos) {
+      prevSkeletonServo2Pos = headPos;
+      skeleton2Servo.write(headPos);
+      
+    }
+
+    if(renard.channelValue(14) >= 127) {
+        digitalWrite(SMOKE_LEFT_PIN, HIGH);
+    }
+    else {
+      digitalWrite(SMOKE_LEFT_PIN, LOW);
+    }
+
+    if(renard.channelValue(15) >= 127) {
+        digitalWrite(SMOKE_RIGHT_PIN, HIGH);
+    }
+    else {
+      digitalWrite(SMOKE_RIGHT_PIN, LOW);
     }
     
     FastLED.show();
