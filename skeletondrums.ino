@@ -31,14 +31,19 @@
 
 #define GUITAR_PIN_HAND_STEP 50
 #define GUITAR_PIN_HAND_DIRECTION 52
+#define GUITAR_PIN_LIMIT_SENSOR A7
 
 #define GUITAR_HAND_MIN 0
 #define GUITAR_HAND_MAX 800
+#define LIMIT_SENSOR_TRIPPED 100
 int currentHandPosition = GUITAR_HAND_MIN;
 int destinationPosition = currentHandPosition;
 bool areWeCurrentlyMovingTheHand = false;
-#define HAND_UP LOW
-#define HAND_DOWN HIGH
+bool handIsZeroed = false;
+
+//Down is toward the body of the guitar. Your movingyour hand "up" the neck of the guitar
+#define HAND_UP HIGH
+#define HAND_DOWN LOW
 #define PULSE_BETWEEN_STEPPER_STEPS 20
 #define MILLS_BETWEEN_STEPS 2
 long lastTimeWeMovedMotor = 0;
@@ -47,7 +52,7 @@ CRGB drum1Leds[DRUM_1_LED_COUNT];
 CRGB drum2Leds[DRUM_2_LED_COUNT];
 CRGB drum3Leds[DRUM_3_LED_COUNT];
 CRGB drum4Leds[DRUM_4_LED_COUNT];
-CRGB drum5Leds[DRUM_5_LED_COUNT]; 
+CRGB drum5Leds[DRUM_5_LED_COUNT];
 
 Adafruit_TiCoServo skeleton1Servo;
 Adafruit_TiCoServo skeleton2Servo;
@@ -60,183 +65,220 @@ int prevSkeletonServo2Pos = 90;
 void setup()
 {
 
-  Serial.begin(57600);
+	Serial.begin(57600);
 
-  FastLED.addLeds<WS2811, DRUM_1_PIN, GRB>(drum1Leds, DRUM_1_LED_COUNT);
-  FastLED.addLeds<WS2811, DRUM_2_PIN, GRB>(drum2Leds, DRUM_2_LED_COUNT);
-  FastLED.addLeds<WS2811, DRUM_3_PIN, GRB>(drum3Leds, DRUM_3_LED_COUNT);
-  FastLED.addLeds<WS2811, DRUM_4_PIN, GRB>(drum4Leds, DRUM_4_LED_COUNT);
-  FastLED.addLeds<WS2811, DRUM_5_PIN, GRB>(drum5Leds, DRUM_5_LED_COUNT);
-  
-  FastLED.setBrightness(100);
-  fill_solid(drum1Leds, DRUM_1_LED_COUNT, CRGB::Black);
-  fill_solid(drum2Leds, DRUM_2_LED_COUNT, CRGB::Black);
-  fill_solid(drum3Leds, DRUM_3_LED_COUNT, CRGB::Black);
-  fill_solid(drum4Leds, DRUM_4_LED_COUNT, CRGB::Black);
-  fill_solid(drum5Leds, DRUM_5_LED_COUNT, CRGB::Black);
-  FastLED.show();
+	FastLED.addLeds<WS2811, DRUM_1_PIN, GRB>(drum1Leds, DRUM_1_LED_COUNT);
+	FastLED.addLeds<WS2811, DRUM_2_PIN, GRB>(drum2Leds, DRUM_2_LED_COUNT);
+	FastLED.addLeds<WS2811, DRUM_3_PIN, GRB>(drum3Leds, DRUM_3_LED_COUNT);
+	FastLED.addLeds<WS2811, DRUM_4_PIN, GRB>(drum4Leds, DRUM_4_LED_COUNT);
+	FastLED.addLeds<WS2811, DRUM_5_PIN, GRB>(drum5Leds, DRUM_5_LED_COUNT);
 
-  pinMode(GUITAR_PIN_RED, OUTPUT);
-  pinMode(GUITAR_PIN_BLUE, OUTPUT);
-  pinMode(GUITAR_PIN_GREEN, OUTPUT);
-  pinMode(GUITAR_PIN_WHITE, OUTPUT);
+	FastLED.setBrightness(100);
+	fill_solid(drum1Leds, DRUM_1_LED_COUNT, CRGB::Black);
+	fill_solid(drum2Leds, DRUM_2_LED_COUNT, CRGB::Black);
+	fill_solid(drum3Leds, DRUM_3_LED_COUNT, CRGB::Black);
+	fill_solid(drum4Leds, DRUM_4_LED_COUNT, CRGB::Black);
+	fill_solid(drum5Leds, DRUM_5_LED_COUNT, CRGB::Black);
+	FastLED.show();
 
-  pinMode(GUITAR_PIN_HAND_DIRECTION, OUTPUT);
-  pinMode(GUITAR_PIN_HAND_STEP, OUTPUT);
-  digitalWrite(GUITAR_PIN_HAND_DIRECTION, HAND_UP); //moving UP
+	pinMode(GUITAR_PIN_RED, OUTPUT);
+	pinMode(GUITAR_PIN_BLUE, OUTPUT);
+	pinMode(GUITAR_PIN_GREEN, OUTPUT);
+	pinMode(GUITAR_PIN_WHITE, OUTPUT);
 
-  pinMode(SKELETON_PIN_HEAD_1_EYES, OUTPUT);
-  skeleton1Servo.attach(SKELETON_PIN_HEAD_1_SERVO);
-  skeleton1Servo.write(90);
+	pinMode(GUITAR_PIN_HAND_DIRECTION, OUTPUT);
+	pinMode(GUITAR_PIN_HAND_STEP, OUTPUT);
+	digitalWrite(GUITAR_PIN_HAND_DIRECTION, HAND_UP); //moving UP
 
-  pinMode(SKELETON_PIN_HEAD_2_EYES, OUTPUT);
-  skeleton2Servo.attach(SKELETON_PIN_HEAD_2_SERVO);
-  skeleton2Servo.write(90);
+	pinMode(SKELETON_PIN_HEAD_1_EYES, OUTPUT);
+	skeleton1Servo.attach(SKELETON_PIN_HEAD_1_SERVO);
+	skeleton1Servo.write(90);
 
-  pinMode(SMOKE_LEFT_PIN, OUTPUT);
-  pinMode(SMOKE_RIGHT_PIN, OUTPUT);
+	pinMode(SKELETON_PIN_HEAD_2_EYES, OUTPUT);
+	skeleton2Servo.attach(SKELETON_PIN_HEAD_2_SERVO);
+	skeleton2Servo.write(90);
 
-  lastTimeWeMovedMotor = millis();
+	pinMode(SMOKE_LEFT_PIN, OUTPUT);
+	pinMode(SMOKE_RIGHT_PIN, OUTPUT);
+
+	lastTimeWeMovedMotor = millis();
 }
 void loop()
 {
-  moveHand();
-  if(renard.processInput()) {
+	moveHand();
+	if (renard.processInput())
+	{
 
-    int brightness = 0;
+		int brightness = 0;
 
-    brightness = renard.channelValue(1);
-    fill_solid(drum1Leds, DRUM_1_LED_COUNT, CRGB(brightness, 0, 0));
+		brightness = renard.channelValue(1);
+		fill_solid(drum1Leds, DRUM_1_LED_COUNT, CRGB(brightness, 0, 0));
 
-    brightness = renard.channelValue(2);
-    fill_solid(drum2Leds, DRUM_2_LED_COUNT, CRGB(0, brightness, 0));
+		brightness = renard.channelValue(2);
+		fill_solid(drum2Leds, DRUM_2_LED_COUNT, CRGB(0, brightness, 0));
 
-    brightness = renard.channelValue(3);
-    fill_solid(drum3Leds, DRUM_3_LED_COUNT, CRGB(0, 0, brightness));
+		brightness = renard.channelValue(3);
+		fill_solid(drum3Leds, DRUM_3_LED_COUNT, CRGB(0, 0, brightness));
 
-    brightness = renard.channelValue(4);
-    fill_solid(drum4Leds, DRUM_4_LED_COUNT, CRGB(brightness, brightness, 0));
+		brightness = renard.channelValue(4);
+		fill_solid(drum4Leds, DRUM_4_LED_COUNT, CRGB(brightness, brightness, 0));
 
-    brightness = renard.channelValue(5);
-    fill_solid(drum5Leds, DRUM_5_LED_COUNT, CRGB(brightness, brightness, brightness));
-    
-    if(renard.channelValue(6) >= 127) {
-        digitalWrite(GUITAR_PIN_RED, HIGH);
-        randomlyPickHandLocation();
-    }
-    else {
-      digitalWrite(GUITAR_PIN_RED, LOW);
-    }
+		brightness = renard.channelValue(5);
+		fill_solid(drum5Leds, DRUM_5_LED_COUNT, CRGB(brightness, brightness, brightness));
 
-    if(renard.channelValue(7) >= 127) {
-        digitalWrite(GUITAR_PIN_BLUE, HIGH);
-        randomlyPickHandLocation();
-    }
-    else {
-      digitalWrite(GUITAR_PIN_BLUE, LOW);
-    }
+		if (renard.channelValue(6) >= 127)
+		{
+			digitalWrite(GUITAR_PIN_RED, HIGH);
+			randomlyPickHandLocation();
+		}
+		else
+		{
+			digitalWrite(GUITAR_PIN_RED, LOW);
+		}
 
-    if(renard.channelValue(8) >= 127) {
-        digitalWrite(GUITAR_PIN_GREEN, HIGH);
-        randomlyPickHandLocation();
-    }
-    else {
-      digitalWrite(GUITAR_PIN_GREEN, LOW);
-    }
+		if (renard.channelValue(7) >= 127)
+		{
+			digitalWrite(GUITAR_PIN_BLUE, HIGH);
+			randomlyPickHandLocation();
+		}
+		else
+		{
+			digitalWrite(GUITAR_PIN_BLUE, LOW);
+		}
 
-    if(renard.channelValue(9) >= 127) {
-        digitalWrite(GUITAR_PIN_WHITE, HIGH);
-        randomlyPickHandLocation();
-    }
-    else {
-      digitalWrite(GUITAR_PIN_WHITE, LOW);
-    }
-    
-    analogWrite(SKELETON_PIN_HEAD_1_EYES, renard.channelValue(10));
+		if (renard.channelValue(8) >= 127)
+		{
+			digitalWrite(GUITAR_PIN_GREEN, HIGH);
+			randomlyPickHandLocation();
+		}
+		else
+		{
+			digitalWrite(GUITAR_PIN_GREEN, LOW);
+		}
 
-    int rawHead = renard.channelValue(11);
-    int headPos = 90;
-    if(rawHead != 0) {
-      headPos = map(rawHead, 0, 255, 40, 140);
-    }
-    //constantly writing servo values jitter fix?
-    if(headPos != prevSkeletonServo1Pos) {
-      prevSkeletonServo1Pos = headPos;
-      skeleton1Servo.write(headPos);
-      
-    }
+		if (renard.channelValue(9) >= 127)
+		{
+			digitalWrite(GUITAR_PIN_WHITE, HIGH);
+			randomlyPickHandLocation();
+		}
+		else
+		{
+			digitalWrite(GUITAR_PIN_WHITE, LOW);
+		}
 
+		analogWrite(SKELETON_PIN_HEAD_1_EYES, renard.channelValue(10));
 
-    analogWrite(SKELETON_PIN_HEAD_2_EYES, renard.channelValue(12));
+		int rawHead = renard.channelValue(11);
+		int headPos = 90;
+		if (rawHead != 0)
+		{
+			headPos = map(rawHead, 0, 255, 40, 140);
+		}
+		//constantly writing servo values jitter fix?
+		if (headPos != prevSkeletonServo1Pos)
+		{
+			prevSkeletonServo1Pos = headPos;
+			skeleton1Servo.write(headPos);
+		}
 
-    rawHead = renard.channelValue(13);
-    headPos = 90;
-    if(rawHead != 0) {
-      headPos = map(rawHead, 0, 255, 40, 140);
-    }
-    //constantly writing servo values jitter fix?
-    if(headPos != prevSkeletonServo2Pos) {
-      prevSkeletonServo2Pos = headPos;
-      skeleton2Servo.write(headPos);
-      
-    }
+		analogWrite(SKELETON_PIN_HEAD_2_EYES, renard.channelValue(12));
 
-    if(renard.channelValue(14) >= 127) {
-        digitalWrite(SMOKE_LEFT_PIN, HIGH);
-    }
-    else {
-      digitalWrite(SMOKE_LEFT_PIN, LOW);
-    }
+		rawHead = renard.channelValue(13);
+		headPos = 90;
+		if (rawHead != 0)
+		{
+			headPos = map(rawHead, 0, 255, 40, 140);
+		}
+		//constantly writing servo values jitter fix?
+		if (headPos != prevSkeletonServo2Pos)
+		{
+			prevSkeletonServo2Pos = headPos;
+			skeleton2Servo.write(headPos);
+		}
 
-    if(renard.channelValue(15) >= 127) {
-        digitalWrite(SMOKE_RIGHT_PIN, HIGH);
-    }
-    else {
-      digitalWrite(SMOKE_RIGHT_PIN, LOW);
-    }
-    
-    FastLED.show();
-  }
+		if (renard.channelValue(14) >= 127)
+		{
+			digitalWrite(SMOKE_LEFT_PIN, HIGH);
+		}
+		else
+		{
+			digitalWrite(SMOKE_LEFT_PIN, LOW);
+		}
 
+		if (renard.channelValue(15) >= 127)
+		{
+			digitalWrite(SMOKE_RIGHT_PIN, HIGH);
+		}
+		else
+		{
+			digitalWrite(SMOKE_RIGHT_PIN, LOW);
+		}
+
+		FastLED.show();
+	}
 }
 
 //called whenever lights turn on
-void randomlyPickHandLocation() {
-    if(!areWeCurrentlyMovingTheHand) {
-      destinationPosition = random(GUITAR_HAND_MIN, GUITAR_HAND_MAX);
-      if(destinationPosition != currentHandPosition) {
-        areWeCurrentlyMovingTheHand = true;
-      }
-    }
+void randomlyPickHandLocation()
+{
+	if (!areWeCurrentlyMovingTheHand)
+	{
+		destinationPosition = random(GUITAR_HAND_MIN, GUITAR_HAND_MAX);
+		if (destinationPosition != currentHandPosition)
+		{
+			areWeCurrentlyMovingTheHand = true;
+		}
+	}
 }
 
-
 //called ever 2 ms
-void moveHand() {
-    long mil = millis();
-    if(lastTimeWeMovedMotor <= mil - MILLS_BETWEEN_STEPS) {
-        lastTimeWeMovedMotor = mil;
+void moveHand()
+{
+	long mil = millis();
+	if (lastTimeWeMovedMotor <= mil - MILLS_BETWEEN_STEPS)
+	{
+		lastTimeWeMovedMotor = mil;
 
-        if(areWeCurrentlyMovingTheHand) {
+		if (areWeCurrentlyMovingTheHand)
+		{
+			if (!handIsZeroed)
+			{
+				int handSensor = analogRead(GUITAR_PIN_LIMIT_SENSOR);
+				if (handSensor < LIMIT_SENSOR_TRIPPED)
+				{
+					// We have hit the zero mark.
+					currentHandPosition = 0;
+					handIsZeroed = true;
+				}
+				else
+				{
+					// Move down to hit the sensor.
+					digitalWrite(GUITAR_PIN_HAND_DIRECTION, HAND_DOWN);
+				}
+			}
 
-            if(currentHandPosition < destinationPosition) {
-              digitalWrite(GUITAR_PIN_HAND_DIRECTION, HAND_UP);
-              currentHandPosition++;
-            }
-            else {
-              digitalWrite(GUITAR_PIN_HAND_DIRECTION, HAND_DOWN);
-              currentHandPosition--;
-            }
+			if (handIsZeroed)
+			{
+				if (currentHandPosition < destinationPosition)
+				{
+					digitalWrite(GUITAR_PIN_HAND_DIRECTION, HAND_UP);
+					currentHandPosition++;
+				}
+				else
+				{
+					digitalWrite(GUITAR_PIN_HAND_DIRECTION, HAND_DOWN);
+					currentHandPosition--;
+				}
 
-            if(currentHandPosition == destinationPosition) {
-                areWeCurrentlyMovingTheHand = false;
-            }
+				if (currentHandPosition == destinationPosition)
+				{
+					areWeCurrentlyMovingTheHand = false;
+				}
+			}
 
-            digitalWrite(GUITAR_PIN_HAND_STEP, HIGH);
-            delayMicroseconds(PULSE_BETWEEN_STEPPER_STEPS); // this line is probably unnecessary
-            digitalWrite(GUITAR_PIN_HAND_STEP, LOW);
-
-        }
-    }
-
+			digitalWrite(GUITAR_PIN_HAND_STEP, HIGH);
+			delayMicroseconds(PULSE_BETWEEN_STEPPER_STEPS); // this line is probably unnecessary
+			digitalWrite(GUITAR_PIN_HAND_STEP, LOW);
+		}
+	}
 }
