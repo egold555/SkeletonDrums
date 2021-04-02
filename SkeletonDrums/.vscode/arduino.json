@@ -1,0 +1,7 @@
+{
+	"board": "arduino:avr:mega",
+	"sketch": "skeletondrums.ino",
+	"port": "COM8",
+	"programmer": "AVRISP mkII",
+	"configuration": "cpu=atmega2560"
+}
