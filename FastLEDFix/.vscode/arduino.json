@@ -1,0 +1,7 @@
+{
+    "board": "arduino:avr:nano",
+    "sketch": "FastLEDFix.ino",
+    "port": "COM7",
+    "programmer": "AVRISP mkII",
+    "configuration": "cpu=atmega328"
+}
